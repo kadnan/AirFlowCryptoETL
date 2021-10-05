@@ -15,7 +15,7 @@ from fpdf import FPDF
 today = now = datetime.now()
 
 
-def gen_graph(data, file_name):
+def create_pdf(data, percent_change, file_name):
     df = pd.read_json(json.dumps(data))
     df = df.head(50)
     fig, ax = plt.subplots()
@@ -39,6 +39,8 @@ def gen_graph(data, file_name):
     pdf.text(20, 20, "Binance")
     pdf.set_xy(20, 30)
     pdf.image(abs_path_binance, w=100, h=50)
+    pdf.set_font('Arial', 'B', 12)
+    pdf.text(20, 80, "Change in Volume in %:- {}".format(round(percent_change)))
     pdf.set_author('Adnan Siddiqi')
     pdf.output('btc_analysis.pdf', 'F')
     abs_path_binance_pdf = os.path.abspath('btc_analysis.pdf')
@@ -191,19 +193,33 @@ def load_data(**kwargs):
     return {'binance': binance_data, 'ftx': ftx_data, 'bybit': bybit_data}
 
 
+def calculate_percentage(initial_value, final_value):
+    change = (final_value - initial_value) / initial_value
+    change_percent = change * 100
+    return change_percent
+
+
 def generate_pdf_reports(**kwargs):
     ti = kwargs['ti']
     close_data = ti.xcom_pull(key=None, task_ids=['load_data'])
     binance_data = close_data[0]['binance']
     ftx_data = close_data[0]['ftx']
     bybit_data = close_data[0]['bybit']
-    pdf_path = gen_graph(binance_data, 'binance_graph.png')
+
+    initial_volume_record_binance = binance_data[0]
+    final_volume_record_binance = binance_data[len(binance_data) - 1]
+
+    binance_change_percent = calculate_percentage(initial_volume_record_binance['volume'],
+                                                  final_volume_record_binance['volume']
+                                                  )
+
+    pdf_path = create_pdf(binance_data, binance_change_percent, 'binance_graph.png')
     return pdf_path
 
 
 default_args = {
     'owner': 'airflow',
-    'start_date': datetime(2021, 10, 2, 11, 00, 00),
+    'start_date': datetime(2021, 10, 4, 11, 00, 00),
     'concurrency': 1,
     'retries': 0
 }
